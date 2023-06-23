@@ -2,12 +2,13 @@ FROM python:3.9
 
 WORKDIR /project
 
-# Copy over contents from local directory to the path in Docker container
-COPY . /project/
-
-# Install python requirements from requirements.txt
+# Copy over requirements.txt separately to use cache for pip install
+# (instead of reinstalling with every build)
+ADD ./requirements.txt /project/requirements.txt
 RUN pip install --upgrade -r requirements.txt
 
+# Copy the rest of the files
+ADD . /project
 WORKDIR /project/app
 
 # Start uvicorn server
