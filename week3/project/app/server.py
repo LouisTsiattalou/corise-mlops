@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 from loguru import logger
@@ -29,11 +32,16 @@ def startup_event():
     [TO BE IMPLEMENTED]
     1. Initialize an instance of `NewsCategoryClassifier`.
     2. Load the serialized trained model parameters (pointed to by `MODEL_PATH`) into the NewsCategoryClassifier you initialized.
-    3. Open an output file to write logs, at the destimation specififed by `LOGS_OUTPUT_PATH`
+    3. Open an output file to write logs, at the destination specified by `LOGS_OUTPUT_PATH`
         
     Access to the model instance and log file will be needed in /predict endpoint, make sure you
     store them as global variables
     """
+    global classifier
+    classifier = NewsCategoryClassifier()
+    classifier.load(MODEL_PATH)
+    logger.add(LOGS_OUTPUT_PATH)
+
     logger.info("Setup completed")
 
 
@@ -45,6 +53,8 @@ def shutdown_event():
     1. Make sure to flush the log file and close any file pointers to avoid corruption
     2. Any other cleanups
     """
+    logger.remove(LOGS_OUTPUT_PATH)
+    os.remove(LOGS_OUTPUT_PATH)
     logger.info("Shutting down application")
 
 
@@ -65,8 +75,34 @@ def predict(request: PredictRequest):
     }
     3. Construct an instance of `PredictResponse` and return
     """
-    response = PredictResponse(scores={"label1": 0.9, "label2": 0.1}, label="label1")
-    return response
+
+    start = datetime.now()
+
+    model_input = {
+        "source": request.source,
+        "url": request.url,
+        "title": request.title,
+        "description": request.description,
+    }
+
+    scores = classifier.predict_proba(model_input)
+    label = classifier.predict_label(model_input)
+
+    prediction = {
+        "scores": scores,
+        "label": label,
+    }
+
+    end = datetime.now()
+
+    logger.info({
+        "timestamp": start.strftime("%Y-%m-%d %H:%M:%S"),
+        "request": model_input,
+        "prediction": prediction,
+        "latency": (end - start).total_seconds() * 1000,
+    })
+
+    return PredictResponse(scores=prediction["scores"], label=prediction["label"])
 
 
 @app.get("/")
