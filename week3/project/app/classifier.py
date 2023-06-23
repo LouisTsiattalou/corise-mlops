@@ -78,7 +78,7 @@ class NewsCategoryClassifier:
         res = {
             category: probability
             for category, probability
-            in zip(self.classes, proba, strict=True)
+            in zip(self.classes, proba)
         }
 
         return res
